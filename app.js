@@ -6,14 +6,14 @@ gsap.registerPlugin(ScrollTrigger);
 
 const canvas = document.querySelector('#scene');
 const isMobile = matchMedia('(max-width:700px)').matches || navigator.maxTouchPoints > 1;
-const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const reduced = matchMedia('(prefers-reduced-motion:reduce)').matches;
 const progressBar = document.querySelector('#progressBar');
 
 const renderer = new THREE.WebGLRenderer({
   canvas,
   antialias: !isMobile,
   alpha: false,
-  powerPreference: isMobile ? 'high-performance' : 'high-performance'
+  powerPreference: 'high-performance'
 });
 renderer.setPixelRatio(Math.min(devicePixelRatio || 1, isMobile ? 1.15 : 1.75));
 renderer.setSize(innerWidth, innerHeight, false);
@@ -32,11 +32,11 @@ const clock = new THREE.Clock();
 const state = { progress: 0, mx: 0, my: 0 };
 const target = { x: 0, y: 6.4, z: 23 };
 
-// ------------------------------------------------------------
-// OCEANO PROCEDURAL — sem textura externa e sem Water addon.
-// A altura das ondas é calculada no vertex shader e a aparência
-// da superfície é reconstruída em tempo real no fragment shader.
-// ------------------------------------------------------------
+// ============================================================
+// OCEANO PROCEDURAL
+// A superfície é criada inteiramente em shader: não usa vídeo,
+// imagem de fundo nem textura de água externa.
+// ============================================================
 const oceanVertex = `
   uniform float uTime;
   uniform float uScale;
@@ -59,19 +59,22 @@ const oceanVertex = `
   }
 
   void main() {
-    vec3 p = position;
-    p.y = heightAt(p.xz);
+    // PlaneGeometry começa no plano XY. Depois o mesh é rotacionado
+    // para virar o oceano, portanto a superfície deve usar position.xy.
+    vec2 surface = position.xy;
+    float h = heightAt(surface);
+    vec3 p = vec3(surface.x, h, surface.y);
 
     float e = 0.11;
-    float hx = heightAt(p.xz + vec2(e, 0.0));
-    float hz = heightAt(p.xz + vec2(0.0, e));
-    vec3 tx = normalize(vec3(e, hx - p.y, 0.0));
-    vec3 tz = normalize(vec3(0.0, hz - p.y, e));
+    float hx = heightAt(surface + vec2(e, 0.0));
+    float hz = heightAt(surface + vec2(0.0, e));
+    vec3 tx = normalize(vec3(e, hx - h, 0.0));
+    vec3 tz = normalize(vec3(0.0, hz - h, e));
     vNormal = normalize(cross(tz, tx));
 
     vec4 world = modelMatrix * vec4(p, 1.0);
     vWorldPosition = world.xyz;
-    vHeight = p.y;
+    vHeight = h;
     gl_Position = projectionMatrix * viewMatrix * world;
   }
 `;
@@ -91,34 +94,38 @@ const oceanFragment = `
     vec3 L = normalize(uSunDirection);
     float fresnel = pow(1.0 - max(dot(N, V), 0.0), 4.2);
 
-    vec3 deep = vec3(0.004, 0.055, 0.078);
-    vec3 mid = vec3(0.01, 0.20, 0.27);
-    vec3 shallow = vec3(0.04, 0.38, 0.45);
+    vec3 deep = vec3(0.003, 0.043, 0.064);
+    vec3 mid = vec3(0.008, 0.18, 0.245);
+    vec3 shallow = vec3(0.035, 0.39, 0.46);
     vec3 color = mix(deep, mid, clamp(0.5 + N.y * 0.55, 0.0, 1.0));
-    color = mix(color, shallow, fresnel * 0.52);
+    color = mix(color, shallow, fresnel * 0.56);
 
-    float sun = pow(max(dot(reflect(-L, N), V), 0.0), uMobile ? 70.0 : 110.0);
-    float broadSun = pow(max(dot(N, L), 0.0), 8.0) * 0.16;
-    color += vec3(1.0, 0.78, 0.52) * (sun * 0.95 + broadSun);
+    // Reflexo solar intenso e faixa larga de luz.
+    float sunGlint = pow(max(dot(reflect(-L, N), V), 0.0), uMobile ? 60.0 : 115.0);
+    float sunlight = pow(max(dot(N, L), 0.0), 7.0) * 0.14;
+    color += vec3(1.0, 0.76, 0.48) * (sunGlint * 0.95 + sunlight);
 
-    float sparkle = sin(vWorldPosition.x * 2.8 + uTime * 4.0) * sin(vWorldPosition.z * 2.1 - uTime * 3.0);
-    sparkle = smoothstep(0.78, 0.98, sparkle) * pow(max(dot(N, L), 0.0), 5.0);
-    color += vec3(0.72, 0.93, 1.0) * sparkle * (uMobile ? 0.08 : 0.15);
+    // Micro brilho quebrado pela água.
+    float sparkle = sin(vWorldPosition.x * 2.8 + uTime * 4.0) *
+                    sin(vWorldPosition.z * 2.1 - uTime * 3.0);
+    sparkle = smoothstep(0.80, 0.985, sparkle);
+    sparkle *= pow(max(dot(N, L), 0.0), 5.0);
+    color += vec3(0.62, 0.90, 1.0) * sparkle * (uMobile ? 0.08 : 0.16);
 
-    float foam = smoothstep(0.45, 0.72, abs(vHeight));
-    color = mix(color, vec3(0.55, 0.80, 0.82), foam * 0.055);
+    // Espuma sutil nas cristas.
+    float foam = smoothstep(0.52, 0.82, abs(vHeight));
+    color = mix(color, vec3(0.55, 0.80, 0.82), foam * 0.075);
 
-    float distanceFade = smoothstep(30.0, 250.0, -vWorldPosition.z);
-    color = mix(color, vec3(0.08, 0.19, 0.22), distanceFade * 0.55);
+    // Haze atmosférico para criar profundidade no horizonte.
+    float horizonFade = smoothstep(35.0, 280.0, -vWorldPosition.z);
+    color = mix(color, vec3(0.075, 0.18, 0.21), horizonFade * 0.56);
 
     gl_FragColor = vec4(color, 1.0);
   }
 `;
 
-const oceanSize = isMobile ? 420 : 620;
-const oceanSegments = isMobile ? 150 : 250;
 const ocean = new THREE.Mesh(
-  new THREE.PlaneGeometry(oceanSize, oceanSize, oceanSegments, oceanSegments),
+  new THREE.PlaneGeometry(isMobile ? 420 : 620, isMobile ? 420 : 620, isMobile ? 150 : 250, isMobile ? 150 : 250),
   new THREE.ShaderMaterial({
     vertexShader: oceanVertex,
     fragmentShader: oceanFragment,
@@ -129,53 +136,52 @@ const ocean = new THREE.Mesh(
       uSunDirection: { value: new THREE.Vector3(-0.42, 0.75, 0.34).normalize() },
       uMobile: { value: isMobile }
     },
-    side: THREE.DoubleSide,
-    roughness: 0.2
+    side: THREE.DoubleSide
   })
 );
 ocean.rotation.x = -Math.PI / 2;
 ocean.position.y = -0.55;
 scene.add(ocean);
 
-// ------------------------------------------------------------
-// CÉU / HORIZONTE
-// ------------------------------------------------------------
-const skyGeo = new THREE.SphereGeometry(520, 32, 20);
-const skyMat = new THREE.ShaderMaterial({
-  side: THREE.BackSide,
-  depthWrite: false,
-  uniforms: { uTime: { value: 0 } },
-  vertexShader: `
-    varying vec3 vDir;
-    void main(){
-      vDir = normalize((modelMatrix * vec4(position,1.0)).xyz - cameraPosition);
-      gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(position,1.0);
-    }
-  `,
-  fragmentShader: `
-    varying vec3 vDir;
-    uniform float uTime;
-    void main(){
-      float h = clamp(vDir.y * 0.5 + 0.45, 0.0, 1.0);
-      vec3 horizon = vec3(0.40, 0.69, 0.79);
-      vec3 zenith = vec3(0.012, 0.045, 0.075);
-      vec3 c = mix(horizon, zenith, pow(h, 1.25));
-      float sunGlow = pow(max(dot(vDir, normalize(vec3(-0.42,0.75,0.34))),0.0), 16.0);
-      c += vec3(1.0,0.55,0.28) * sunGlow * 0.16;
-      gl_FragColor = vec4(c,1.0);
-    }
-  `
-});
-scene.add(new THREE.Mesh(skyGeo, skyMat));
+// ============================================================
+// CÉU PROCEDURAL
+// ============================================================
+const sky = new THREE.Mesh(
+  new THREE.SphereGeometry(520, 32, 20),
+  new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    depthWrite: false,
+    uniforms: {},
+    vertexShader: `
+      varying vec3 vDir;
+      void main(){
+        vDir = normalize((modelMatrix * vec4(position,1.0)).xyz - cameraPosition);
+        gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(position,1.0);
+      }
+    `,
+    fragmentShader: `
+      varying vec3 vDir;
+      void main(){
+        float h = clamp(vDir.y * 0.5 + 0.45, 0.0, 1.0);
+        vec3 horizon = vec3(0.42, 0.70, 0.80);
+        vec3 zenith = vec3(0.006, 0.028, 0.052);
+        vec3 c = mix(horizon, zenith, pow(h, 1.25));
+        float sunGlow = pow(max(dot(vDir, normalize(vec3(-0.42,0.75,0.34))),0.0), 15.0);
+        c += vec3(1.0, 0.53, 0.25) * sunGlow * 0.18;
+        gl_FragColor = vec4(c, 1.0);
+      }
+    `
+  })
+);
+scene.add(sky);
 
 const sun = new THREE.Mesh(
   new THREE.SphereGeometry(3.5, 24, 24),
-  new THREE.MeshBasicMaterial({ color: 0xffd39b, transparent: true, opacity: 0.7 })
+  new THREE.MeshBasicMaterial({ color: 0xffd39b, transparent: true, opacity: 0.72 })
 );
 sun.position.set(-95, 78, -170);
 scene.add(sun);
 
-// Bruma distante para vender a escala do horizonte.
 for (let i = 0; i < (isMobile ? 4 : 7); i++) {
   const mist = new THREE.Mesh(
     new THREE.PlaneGeometry(190, 18),
@@ -191,32 +197,51 @@ for (let i = 0; i < (isMobile ? 4 : 7); i++) {
   scene.add(mist);
 }
 
-// ------------------------------------------------------------
-// LUZ / ELEMENTOS DE ESCALA
-// ------------------------------------------------------------
 scene.add(new THREE.HemisphereLight(0xb8e8f2, 0x021018, isMobile ? 1.2 : 1.55));
 const keyLight = new THREE.DirectionalLight(0xffdfb1, isMobile ? 1.8 : 2.7);
-keyLight.position.copy(sun.position).multiplyScalar(0.45);
+keyLight.position.set(-40, 45, -70);
 scene.add(keyLight);
 
+// ============================================================
+// BARCO — escala visual no horizonte
+// ============================================================
 const boat = new THREE.Group();
-const hull = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.45, 0.9), new THREE.MeshStandardMaterial({ color: 0x122328, roughness: 0.65 }));
+const hull = new THREE.Mesh(
+  new THREE.BoxGeometry(3.4, 0.45, 0.9),
+  new THREE.MeshStandardMaterial({ color: 0x122328, roughness: 0.65 })
+);
 hull.position.y = 0.38;
 boat.add(hull);
-const deck = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.11, 1.0), new THREE.MeshStandardMaterial({ color: 0xc0ab83, roughness: 0.85 }));
+
+const deck = new THREE.Mesh(
+  new THREE.BoxGeometry(2.2, 0.11, 1.0),
+  new THREE.MeshStandardMaterial({ color: 0xc0ab83, roughness: 0.85 })
+);
 deck.position.y = 0.63;
 boat.add(deck);
-const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 3.1, 10), new THREE.MeshStandardMaterial({ color: 0xf0e9d7 }));
+
+const mast = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.035, 0.035, 3.1, 10),
+  new THREE.MeshStandardMaterial({ color: 0xf0e9d7 })
+);
 mast.position.y = 2.05;
 boat.add(mast);
-const sail = new THREE.Mesh(new THREE.PlaneGeometry(1.95, 2.15), new THREE.MeshStandardMaterial({ color: 0xf0eadc, side: THREE.DoubleSide, roughness: 0.9 }));
+
+const sail = new THREE.Mesh(
+  new THREE.PlaneGeometry(1.95, 2.15),
+  new THREE.MeshStandardMaterial({ color: 0xf0eadc, side: THREE.DoubleSide, roughness: 0.9 })
+);
 sail.position.set(0.52, 2.05, 0);
 sail.rotation.y = -0.15;
 boat.add(sail);
+
 boat.position.set(-14, -0.1, -96);
 boat.scale.setScalar(isMobile ? 0.48 : 0.85);
 scene.add(boat);
 
+// ============================================================
+// AVIÃO DISTANTE
+// ============================================================
 const plane = new THREE.Group();
 const planeMat = new THREE.MeshStandardMaterial({ color: 0xd9e4e6, roughness: 0.42, metalness: 0.18 });
 const fuselage = new THREE.Mesh(new THREE.CapsuleGeometry(0.11, 1.7, 5, 10), planeMat);
@@ -228,7 +253,6 @@ plane.add(wing);
 plane.scale.setScalar(isMobile ? 0.55 : 0.78);
 scene.add(plane);
 
-// Spray fino no primeiro plano: pouca geometria, muito movimento.
 const sprayCount = isMobile ? 180 : 700;
 const sprayPositions = new Float32Array(sprayCount * 3);
 for (let i = 0; i < sprayCount; i++) {
@@ -236,16 +260,17 @@ for (let i = 0; i < sprayCount; i++) {
   sprayPositions[i * 3 + 1] = Math.random() * 2.2 - 0.15;
   sprayPositions[i * 3 + 2] = -Math.random() * 220 + 5;
 }
+const sprayGeometry = new THREE.BufferGeometry();
+sprayGeometry.setAttribute('position', new THREE.BufferAttribute(sprayPositions, 3));
 const spray = new THREE.Points(
-  new THREE.BufferGeometry(),
+  sprayGeometry,
   new THREE.PointsMaterial({ color: 0xe8fbff, size: isMobile ? 0.025 : 0.035, transparent: true, opacity: 0.42, depthWrite: false })
 );
-spray.geometry.setAttribute('position', new THREE.BufferAttribute(sprayPositions, 3));
 scene.add(spray);
 
-// ------------------------------------------------------------
-// SCROLL CINEMATOGRÁFICO
-// ------------------------------------------------------------
+// ============================================================
+// SCROLL + CÂMERA CINEMATOGRÁFICA
+// ============================================================
 ScrollTrigger.create({
   trigger: 'main',
   start: 'top top',
@@ -265,11 +290,13 @@ gsap.to('.hero h1', {
   opacity: 0.08,
   scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: true }
 });
+
 gsap.to('.hero p,.scroll-cue', {
   y: -25,
   opacity: 0,
   scrollTrigger: { trigger: '.hero', start: 'top top', end: '55% top', scrub: true }
 });
+
 gsap.utils.toArray('.story-card').forEach(card => {
   gsap.fromTo(card, { y: 70, opacity: 0 }, {
     y: 0,
@@ -299,17 +326,14 @@ addEventListener('orientationchange', () => setTimeout(resize, 160), { passive: 
 
 function animate() {
   const t = clock.getElapsedTime();
-  const delta = Math.min(clock.getDelta?.() || 0.016, 0.033);
 
   camera.position.x += (target.x + state.mx * (isMobile ? 0 : 1.6) - camera.position.x) * 0.035;
   camera.position.y += (target.y - state.my * (isMobile ? 0 : 0.65) - camera.position.y) * 0.035;
   camera.position.z += (target.z - camera.position.z) * 0.045;
-
   camera.lookAt(camera.position.x * 0.07, Math.max(-1.2, camera.position.y * 0.22), camera.position.z - 23);
 
   ocean.material.uniforms.uTime.value = t * (reduced ? 0.16 : 0.55);
   ocean.material.uniforms.uCamera.value.copy(camera.position);
-  skyMat.uniforms.uTime.value = t;
 
   spray.rotation.y = t * 0.004;
   boat.rotation.z = Math.sin(t * 0.62) * 0.035;
