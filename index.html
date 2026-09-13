@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#03131c" />
-  <meta name="description" content="Experimento WebGL imersivo com oceano 3D, ondas, reflexos e atmosfera dinâmica." />
+  <meta name="description" content="Experimento imersivo combinando vídeo real do oceano com efeitos 3D em tempo real." />
   <title>IA TESTE — Ocean Reality</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -12,9 +12,8 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div id="loader" class="loader"><span>GENERATING OCEAN</span><i></i></div>
+  <div id="loader" class="loader"><span>ENTERING REAL OCEAN</span><i></i></div>
 
-  <!-- O loader é independente do Three.js: nunca bloqueia a experiência. -->
   <script>
     (() => {
       const hide = () => {
@@ -26,29 +25,59 @@
         el.style.pointerEvents = 'none';
         setTimeout(() => el.remove(), 420);
       };
-      setTimeout(hide, 900);
-      window.addEventListener('load', () => setTimeout(hide, 120));
+      setTimeout(hide, 1000);
+      window.addEventListener('load', () => setTimeout(hide, 100));
     })();
   </script>
 
+  <video id="oceanVideo" class="ocean-video" autoplay muted loop playsinline preload="metadata" aria-hidden="true">
+    <source src="https://www.ariaditerra.com/wp-content/uploads/2023/02/coverr-people-on-a-cruising-boat-in-the-ocean-4301-1080p.mp4" type="video/mp4" />
+  </video>
+  <div class="video-grade"></div>
   <canvas id="scene" aria-hidden="true"></canvas>
-  <header class="topbar"><div class="brand">IA<span>/</span>TESTE</div><div class="status"><b></b> REALTIME OCEAN</div></header>
-  <main>
-    <section class="hero panel"><div class="hero-content"><div class="eyebrow">01 — THE SURFACE IS ALIVE</div><h1>Não é uma imagem.<br /><em>É um oceano.</em></h1><p>Ondas, reflexos, céu e luz calculados em tempo real. Entre na superfície.</p></div><div class="scroll-cue"><span>MERGULHE</span><i></i></div></section>
-    <section class="story panel"><div class="story-card"><span class="eyebrow">02 — WAVE FIELD</span><h2>O mar não repete o mesmo movimento.</h2><p>Camadas de ondas se deslocam em velocidades diferentes, enquanto a superfície reage à iluminação e à câmera.</p></div></section>
-    <section class="story right panel"><div class="story-card glass"><span class="eyebrow">03 — ATMOSPHERE</span><h2>O horizonte muda com você.</h2><p>Nuvens, neblina, brilho solar, partículas de sal e reflexos criam uma cena contínua em vez de uma coleção de blocos.</p></div></section>
-    <section class="final panel"><div><span class="eyebrow">04 — COMPUTED IN REAL TIME</span><h2>Isso não é<br /><em>um vídeo.</em></h2><button id="replay">VOLTAR AO HORIZONTE <span>↗</span></button></div></section>
-  </main>
-  <div class="progress"><span id="progressBar"></span></div><div class="vignette"></div>
 
-  <!-- Import map resolve o "three" usado pelos addons oficiais (Water/Sky). -->
-  <script type="importmap">
-  {
-    "imports": {
-      "three": "https://cdn.jsdelivr.net/npm/three@0.181.2/build/three.module.js"
-    }
-  }
-  </script>
+  <header class="topbar">
+    <div class="brand">IA<span>/</span>TESTE</div>
+    <div class="status"><b></b> REAL OCEAN + 3D</div>
+  </header>
+
+  <main>
+    <section class="hero panel">
+      <div class="hero-content">
+        <div class="eyebrow">01 — REAL FOOTAGE / LIVE LAYER</div>
+        <h1>Agora é<br /><em>mar de verdade.</em></h1>
+        <p>Vídeo real do oceano combinado com uma camada 3D interativa. O objetivo não é parecer uma animação — é fazer você esquecer que existe uma interface.</p>
+      </div>
+      <div class="scroll-cue"><span>MERGULHE</span><i></i></div>
+    </section>
+
+    <section class="story panel">
+      <div class="story-card">
+        <span class="eyebrow">02 — HYBRID REALITY</span>
+        <h2>Real embaixo.<br />Computado em cima.</h2>
+        <p>A filmagem continua acontecendo enquanto ondas, partículas, luz e profundidade são renderizadas em tempo real sobre ela.</p>
+      </div>
+    </section>
+
+    <section class="story right panel">
+      <div class="story-card glass">
+        <span class="eyebrow">03 — MOTION SYSTEM</span>
+        <h2>Role.<br />A cena acompanha.</h2>
+        <p>A câmera 3D responde ao scroll e ao movimento do dispositivo, criando profundidade sem transformar a experiência em uma simples página de vídeo.</p>
+      </div>
+    </section>
+
+    <section class="final panel">
+      <div>
+        <span class="eyebrow">04 — REALITY / SYNTHESIS</span>
+        <h2>Você está<br /><em>vendo o mar.</em></h2>
+        <button id="replay">VOLTAR AO HORIZONTE <span>↗</span></button>
+      </div>
+    </section>
+  </main>
+
+  <div class="progress"><span id="progressBar"></span></div>
+  <div class="vignette"></div>
   <script type="module" src="app.js"></script>
 </body>
 </html>
