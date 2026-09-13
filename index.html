@@ -13,6 +13,25 @@
 </head>
 <body>
   <div id="loader" class="loader"><span>GENERATING OCEAN</span><i></i></div>
+
+  <script>
+    (() => {
+      const removeLoader = () => {
+        const loader = document.getElementById('loader');
+        if (!loader || loader.dataset.done === '1') return;
+        loader.dataset.done = '1';
+        loader.style.opacity = '0';
+        loader.style.visibility = 'hidden';
+        loader.style.pointerEvents = 'none';
+        setTimeout(() => loader.remove(), 450);
+      };
+
+      // O loader nunca depende do Three.js, de CDN, WebGL ou de qualquer asset remoto.
+      setTimeout(removeLoader, 900);
+      window.addEventListener('load', () => setTimeout(removeLoader, 100));
+    })();
+  </script>
+
   <canvas id="scene" aria-hidden="true"></canvas>
   <header class="topbar"><div class="brand">IA<span>/</span>TESTE</div><div class="status"><b></b> REALTIME OCEAN</div></header>
   <main>
