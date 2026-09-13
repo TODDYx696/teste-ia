@@ -9,34 +9,37 @@ const canvas=document.querySelector('#scene');
 const loaderEl=document.querySelector('#loader');
 const isMobile=matchMedia('(max-width:700px)').matches||navigator.maxTouchPoints>1;
 const reduced=matchMedia('(prefers-reduced-motion:reduce)').matches;
+
+// O loader nunca depende de textura, WebGL ou animação. A página abre mesmo se algum CDN falhar.
+function hideLoader(){
+  if(!loaderEl||loaderEl.dataset.done)return;
+  loaderEl.dataset.done='1';
+  loaderEl.style.pointerEvents='none';
+  loaderEl.style.transition='opacity .28s ease';
+  loaderEl.style.opacity='0';
+  setTimeout(()=>loaderEl.remove(),300);
+}
+// Executa imediatamente e novamente no próximo frame como segurança.
+hideLoader();
+requestAnimationFrame(hideLoader);
+setTimeout(hideLoader,250);
+
 const scene=new THREE.Scene();
 scene.fog=new THREE.FogExp2(0x06202b,isMobile?.018:.011);
-const camera=new THREE.PerspectiveCamera(isMobile?67:57,1,.1,900);
+const camera=new THREE.PerspectiveCamera(isMobile?67:57,innerWidth/innerHeight,.1,900);
 camera.position.set(0,5.2,24);
 let renderer;
-try{renderer=new THREE.WebGLRenderer({canvas,antialias:!isMobile,alpha:false,powerPreference:isMobile?'low-power':'high-performance'});}catch(e){document.body.classList.add('no-webgl');loaderEl?.remove();throw e;}
+try{renderer=new THREE.WebGLRenderer({canvas,antialias:!isMobile,alpha:false,powerPreference:isMobile?'low-power':'high-performance'});}catch(e){document.body.classList.add('no-webgl');throw e;}
 renderer.setPixelRatio(isMobile?Math.min(devicePixelRatio||1,1.1):Math.min(devicePixelRatio||1,1.65));
 renderer.setSize(innerWidth,innerHeight,false);
 renderer.outputColorSpace=THREE.SRGBColorSpace;
 renderer.toneMapping=THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure=isMobile?1.05:1.18;
 
-// Never let a remote texture prevent the page from opening.
-const waterNormals=new THREE.TextureLoader().load(
-  'https://threejs.org/examples/textures/waternormals.jpg',
-  texture=>{texture.wrapS=texture.wrapT=THREE.RepeatWrapping;hideLoader();},
-  undefined,
-  ()=>hideLoader()
-);
-function hideLoader(){
-  if(!loaderEl||loaderEl.dataset.done)return;
-  loaderEl.dataset.done='1';
-  loaderEl.style.pointerEvents='none';
-  loaderEl.style.transition='opacity .35s ease';
-  requestAnimationFrame(()=>{loaderEl.style.opacity='0';setTimeout(()=>loaderEl.remove(),380);});
-}
-// Hard fallback: even if a CDN hangs, the scene becomes interactive.
-setTimeout(hideLoader,1200);
+// A textura é opcional: se falhar, a água continua funcionando sem ela.
+const waterNormals=new THREE.TextureLoader().load('https://threejs.org/examples/textures/waternormals.jpg',texture=>{
+  texture.wrapS=texture.wrapT=THREE.RepeatWrapping;
+},undefined,()=>{});
 
 const waterSize=isMobile?260:420;
 const waterSegments=isMobile?72:180;
@@ -54,24 +57,18 @@ water.rotation.x=-Math.PI/2;
 scene.add(water);
 
 const sky=new Sky();
-sky.scale.setScalar(450);
-scene.add(sky);
+sky.scale.setScalar(450);scene.add(sky);
 const skyUniforms=sky.material.uniforms;
-skyUniforms.turbidity.value=5.2;
-skyUniforms.rayleigh.value=1.45;
-skyUniforms.mieCoefficient.value=.006;
-skyUniforms.mieDirectionalG.value=.82;
+skyUniforms.turbidity.value=5.2;skyUniforms.rayleigh.value=1.45;skyUniforms.mieCoefficient.value=.006;skyUniforms.mieDirectionalG.value=.82;
 const sun=new THREE.Vector3();
-const skyParams={elevation:14,azimuth:138};
 function updateSky(){
-  const phi=THREE.MathUtils.degToRad(90-skyParams.elevation);
-  const theta=THREE.MathUtils.degToRad(skyParams.azimuth);
+  const phi=THREE.MathUtils.degToRad(90-14);
+  const theta=THREE.MathUtils.degToRad(138);
   sun.setFromSphericalCoords(1,phi,theta);
   sky.material.uniforms.sunPosition.value.copy(sun);
   water.material.uniforms.sunDirection.value.copy(sun).normalize();
 }
 updateSky();
-
 const hemi=new THREE.HemisphereLight(0xa9dcf0,0x031018,isMobile?1.15:1.55);scene.add(hemi);
 const sunlight=new THREE.DirectionalLight(0xffe4aa,isMobile?1.8:3.0);sunlight.position.copy(sun).multiplyScalar(40);scene.add(sunlight);
 
@@ -82,8 +79,7 @@ for(let i=0;i<(isMobile?3:5);i++){
 }
 
 const sprayCount=isMobile?120:650;
-const sprayGeo=new THREE.BufferGeometry();
-const sprayPos=new Float32Array(sprayCount*3);
+const sprayGeo=new THREE.BufferGeometry();const sprayPos=new Float32Array(sprayCount*3);
 for(let i=0;i<sprayCount;i++){sprayPos[i*3]=(Math.random()-.5)*120;sprayPos[i*3+1]=Math.random()*7+.1;sprayPos[i*3+2]=-Math.random()*210-4;}
 sprayGeo.setAttribute('position',new THREE.BufferAttribute(sprayPos,3));
 const spray=new THREE.Points(sprayGeo,new THREE.PointsMaterial({color:0xdffcff,size:isMobile?.035:.045,transparent:true,opacity:.35,depthWrite:false}));scene.add(spray);
@@ -105,7 +101,6 @@ const state={progress:0,mx:0,my:0};
 const target={x:0,y:5.2,z:24};
 const bar=document.querySelector('#progressBar');
 ScrollTrigger.create({trigger:'main',start:'top top',end:'bottom bottom',scrub:isMobile?.42:.65,onUpdate:self=>{state.progress=self.progress;if(bar)bar.style.width=`${self.progress*100}%`;target.z=24-self.progress*94;target.y=5.2-Math.sin(self.progress*Math.PI)*3.4-(self.progress>.72?(self.progress-.72)*11:0);target.x=Math.sin(self.progress*Math.PI*2)*7;}});
-
 gsap.to('.hero h1',{y:isMobile?-34:-75,opacity:.08,scrollTrigger:{trigger:'.hero',start:'top top',end:'bottom top',scrub:true}});
 gsap.to('.hero p,.scroll-cue',{y:-28,opacity:0,scrollTrigger:{trigger:'.hero',start:'top top',end:'55% top',scrub:true}});
 gsap.utils.toArray('.story-card').forEach(card=>gsap.fromTo(card,{y:70,opacity:0},{y:0,opacity:1,scrollTrigger:{trigger:card,start:'top 84%',end:'top 54%',scrub:true}}));
@@ -123,8 +118,6 @@ function animate(){
   camera.position.z+=(target.z-camera.position.z)*.045;
   camera.lookAt(camera.position.x*.08,Math.max(-1,camera.position.y*.25),camera.position.z-22);
   water.material.uniforms.time.value=t*.48;
-  // On mobile, sky/sun are static to avoid unnecessary work during startup.
-  if(!isMobile){skyParams.azimuth=138+Math.sin(t*.018)*5;skyParams.elevation=14+Math.sin(t*.025)*1.8;updateSky();sunlight.position.copy(sun).multiplyScalar(40);}
   spray.rotation.y=t*.006;
   const phase=(t*(isMobile?.32:.48))%15/15;
   plane.position.set(-30+phase*60,14+Math.sin(phase*Math.PI)*1.5,-35-phase*18);
