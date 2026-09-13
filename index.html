@@ -2,54 +2,57 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#06100b" />
-  <title>IA TESTE — Immersive Forest</title>
   <meta name="description" content="Experimento visual imersivo com floresta real, Three.js, GSAP e WebGL." />
+  <title>IA TESTE — Immersive Forest</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div id="loader" class="loader"><span>INITIALIZING EXPERIENCE</span><i></i></div>
+  <div id="loader" class="loader"><span>BUILDING ENVIRONMENT</span><i></i></div>
   <canvas id="scene" aria-hidden="true"></canvas>
 
   <header class="topbar">
     <div class="brand">IA<span>/</span>TESTE</div>
-    <div class="status"><b></b> WEBGL EXPERIENCE</div>
+    <div class="status"><b></b> IMMERSIVE WEBGL</div>
   </header>
 
   <main>
     <section class="hero panel">
       <div class="hero-real-image" aria-hidden="true"></div>
       <div class="hero-shade" aria-hidden="true"></div>
-      <div class="eyebrow">01 — ENTER THE ENVIRONMENT</div>
-      <h1>Não é uma página.<br /><em>É um ambiente.</em></h1>
-      <p>Uma floresta real encontra uma experiência 3D construída em tempo real.</p>
-      <div class="scroll-cue"><span>SCROLL TO EXPLORE</span><i></i></div>
+      <div class="hero-light" aria-hidden="true"></div>
+      <div class="hero-content">
+        <div class="eyebrow">01 — ENTER THE ENVIRONMENT</div>
+        <h1>Não é uma página.<br /><em>É um ambiente.</em></h1>
+        <p>Floresta real, profundidade 3D e movimento cinematográfico em uma única experiência.</p>
+      </div>
+      <div class="scroll-cue"><span>SCROLL TO ENTER</span><i></i></div>
     </section>
 
     <section class="story panel">
       <div class="story-card">
         <span class="eyebrow">02 — DEPTH</span>
-        <h2>O movimento acompanha você.</h2>
-        <p>A câmera, a luz e as partículas respondem ao scroll e ao cursor. A sensação é de profundidade, não de uma simples seção animada.</p>
+        <h2>Você não navega.<br />Você atravessa.</h2>
+        <p>A câmera avança pelo ambiente enquanto luz, névoa, partículas e perspectiva mudam com o seu movimento.</p>
       </div>
     </section>
 
     <section class="story right panel">
       <div class="story-card glass">
         <span class="eyebrow">03 — ATMOSPHERE</span>
-        <h2>Luz, neblina e partículas.</h2>
-        <p>Um ambiente vivo com camadas diferentes de profundidade para criar uma experiência cinematográfica.</p>
+        <h2>O céu continua vivo.</h2>
+        <p>Um avião cruza a abertura, o horizonte muda e pequenas partículas mantêm a cena em movimento sem sobrecarregar o celular.</p>
       </div>
     </section>
 
     <section class="final panel">
       <div>
         <span class="eyebrow">04 — THE END IS ANOTHER BEGINNING</span>
-        <h2>Isso foi só o teste.</h2>
+        <h2>Agora ficou<br /><em>interessante.</em></h2>
         <button id="replay">REINICIAR EXPERIÊNCIA <span>↗</span></button>
       </div>
     </section>
